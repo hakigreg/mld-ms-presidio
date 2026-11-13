@@ -1,0 +1,23 @@
+# Concepts and fundamentals
+
+## What Presidio does
+
+Presidio is an open-source set of tools for finding and de-identifying sensitive information. Its most direct workflow is text in → detected entities → changed text out. An *entity* is a kind of information, such as `EMAIL_ADDRESS`, `PHONE_NUMBER`, or `PERSON`. Personally identifiable information (PII) is information that can identify a person directly or in combination with other data. The precise definition of sensitive data depends on the use and rules that apply to it; Presidio's entity names are technical labels, not a legal classification.
+
+Presidio has separate packages for [analysis](https://github.com/data-privacy-stack/presidio/blob/main/docs/analyzer/index.md) and [anonymization](https://github.com/data-privacy-stack/presidio/blob/main/docs/anonymizer/index.md). The analyzer does not rewrite text. It returns a `RecognizerResult` for each accepted detection: entity type, start and end character offsets, and a score. The anonymizer consumes those spans and applies an operator. This separation lets an application inspect findings and choose what to do with each type. The lab passes the analyzer's email findings directly to the anonymizer, which uses the default `replace` operator.
+
+## How detection works
+
+A *recognizer* proposes spans of a particular entity type. Presidio ships predefined recognizers and supports custom ones. Depending on the entity, a recognizer may use a regular expression, a list of known terms, checksums, rules, or a named-entity recognition model. Context words can raise a candidate's score. For example, a number near “phone” may be more plausible as a phone number than the same digits in isolation. An NLP engine supplies language processing such as tokenization and entity recognition where recognizers need it. The analyzer combines recognizer results, handles overlapping candidates, and can filter by entity type and score threshold. See the [analyzer overview](https://github.com/data-privacy-stack/presidio/blob/main/docs/analyzer/index.md) and [context tutorial](https://github.com/data-privacy-stack/presidio/blob/main/docs/tutorial/06_context.md).
+
+This lab deliberately asks only for `EMAIL_ADDRESS` and uses English (`language="en"`). It configures spaCy's small English model because the analyzer needs an NLP engine, although the built-in email detection itself is pattern-based. Consequently, the lab does **not** demonstrate person-name detection or the quality of that small model's named-entity recognition. An address such as `ada@example.com` is found at `[15:30]`; the end offset is exclusive, as in a Python slice.
+
+## How anonymization works
+
+An *operator* describes the text change to perform on a detected span. Presidio offers replacement with a type label, complete removal (`redact`), masking, hashing, encryption, and other operations. The default replacement in this lab produces `<EMAIL_ADDRESS>`. The text surrounding the detected span stays intact. Different operators have different privacy and utility properties: a label preserves the fact that an email was present, while removing it loses that clue; a stable hash may reveal repeated values and is not automatically safe for low-entropy inputs. The [anonymizer guide](https://github.com/data-privacy-stack/presidio/blob/main/docs/anonymizer/index.md) describes the available operators.
+
+The analyzer and anonymizer can run as Python packages, as here, or behind HTTP services. Presidio also has components for images and structured data; those are outside this deployment. Its default language configuration is English, and other languages require suitable NLP models and recognizers. The [installation guide](https://github.com/data-privacy-stack/presidio/blob/main/docs/installation.md) and [FAQ](https://github.com/data-privacy-stack/presidio/blob/main/docs/faq.md) describe the wider suite.
+
+## Important boundary
+
+Detection is probabilistic in the broad sense: even a deterministic recognizer only covers its rules, and other recognizers or models can be uncertain. A high score is a confidence signal, not proof of completeness or privacy. A false negative leaves sensitive text untouched; a false positive changes text unnecessarily. Scope the entities, test with representative data, inspect both errors, and place Presidio alongside access controls and other protections. The project [explicitly warns](https://github.com/data-privacy-stack/presidio#what-is-presidio) that automatic detection cannot guarantee finding all sensitive information. This lab teaches the pipeline, not a production privacy guarantee.
